@@ -1,0 +1,21 @@
+{
+  "name": "coworker",
+  "version": "0.1.0",
+  "description": "Converse with GPT-6 Astra (Codex CLI, ChatGPT login) while Claude does the work: plan critique, multi-round code review with an issue ledger, second opinions and blind debates.",
+  "author": {
+    "name": "RDMTaffy",
+    "url": "https://github.com/RDMTaffy"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "gpt-6-astra",
+    "code-review",
+    "planning",
+    "multi-model",
+    "collaboration",
+    "claude-code-plugin"
+  ],
+  "homepage": "https://github.com/RDMTaffy/codex-claude-coworker",
+  "repository": "https://github.com/RDMTaffy/codex-claude-coworker"
+}

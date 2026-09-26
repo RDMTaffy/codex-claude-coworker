@@ -1,0 +1,28 @@
+{
+  "name": "codex-claude-coworker",
+  "owner": {
+    "name": "RDMTaffy",
+    "url": "https://github.com/RDMTaffy"
+  },
+  "metadata": {
+    "description": "Claude Code × Codex (GPT-6 Astra) collaboration: plan critique and code-review dialogues over your ChatGPT subscription, with Claude as the lead engineer.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "coworker",
+      "source": "./plugins/coworker",
+      "description": "Converse with GPT-6 Astra (Codex CLI, ChatGPT login) while Claude does the work: plan critique, multi-round code review with an issue ledger, second opinions and blind debates.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "codex",
+        "gpt-6-astra",
+        "code-review",
+        "planning",
+        "multi-model",
+        "collaboration"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "assessment",
+    "summary",
+    "coverage",
+    "limitations",
+    "prior",
+    "findings",
+    "questions"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "approve_with_changes",
+        "request_changes",
+        "inconclusive"
+      ]
+    },
+    "assessment": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unable"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewed",
+        "not_reviewed"
+      ],
+      "properties": {
+        "reviewed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_reviewed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prior": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "new_severity",
+          "reason",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "fixed_verified",
+              "fix_incomplete",
+              "conceded",
+              "maintained",
+              "downgraded",
+              "superseded",
+              "accepted_deferral"
+            ]
+          },
+          "new_severity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "blocker",
+              "major",
+              "minor",
+              null
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "category",
+          "scope",
+          "file",
+          "line_start",
+          "line_end",
+          "title",
+          "failure_scenario",
+          "evidence",
+          "basis",
+          "confidence",
+          "recommendation",
+          "verify_by"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "blocker",
+              "major",
+              "minor"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "inferred"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "verify_by": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "bug",
+              "security",
+              "performance",
+              "reliability",
+              "design",
+              "test_gap",
+              "maintainability",
+              "plan_deviation"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "introduced",
+              "pre_existing",
+              "fix_regression"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line_start": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "line_end": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "failure_scenario": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "to",
+          "blocking",
+          "text"
+        ],
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "user"
+            ]
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

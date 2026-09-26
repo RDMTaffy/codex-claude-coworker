@@ -1,0 +1,5 @@
+#!/bin/sh
+# Thin launcher so skills and Claude can call `coworker …` from any directory: plugin bin/ dirs are on
+# the Bash tool's PATH while the plugin is enabled, but ${CLAUDE_PLUGIN_ROOT} is not in its environment.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+exec node "$here/../scripts/coworker.mjs" "$@"

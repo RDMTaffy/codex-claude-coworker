@@ -1,0 +1,14 @@
+{
+  "name": "coworker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code × GPT-6 Astra (Codex CLI) collaboration plugin",
+  "engines": {
+    "node": ">=18.19"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/unit.test.mjs tests/integration.test.mjs tests/static.test.mjs tests/adversarial.test.mjs tests/claude-facing.test.mjs tests/live-findings.test.mjs",
+    "validate": "claude plugin validate . --strict"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 description: 'Code review dialogue with GPT-6 Astra (Codex, ChatGPT login) on the current changes: Astra reviews a frozen snapshot, Claude verifies every finding (reproduces, runs verify_by), fixes or disputes with evidence, and Astra re-reviews the fixes. Use when the user asks Codex/Astra/GPT to review code or wants a second-model review.'
-argument-hint: '[--base <branch> | --commit <sha> | --paths <p>…] [--fix | --report-only] [--deep] [focus text]'
+argument-hint: '[--base <branch> | --commit <sha> | --paths <p>… | --paths-file <file>] [--uncommitted] [--fix | --report-only] [--deep] [focus text]'
 allowed-tools: Bash(coworker *) Bash(git status *) Bash(git diff *) Bash(git log *) Read Grep Glob Edit(.coworker/**) AskUserQuestion
 ---
 
@@ -17,7 +17,10 @@ Run every `coworker` call with the Bash tool and `timeout: 600000`.
 
 1. Read `${CLAUDE_PLUGIN_ROOT}/references/protocol.md` and follow it.
 2. Target: `--base <branch>` → everything since the merge-base (commits + uncommitted + untracked);
-   `--commit <sha>` → that commit; `--paths …` → those files; default → uncommitted changes.
+   `--commit <sha>` → that commit; `--paths …` → those files (one `--paths` per file, or `--paths-file <file>`
+   with one path per line; combine with `--uncommitted` to review only their uncommitted changes); default →
+   uncommitted changes. When a coworker Stop hook asked for this review, use exactly the flags and thread
+   name it gave.
    For the default target only, check `git status --short` first; if it is empty, say so and stop.
    (`--base`/`--commit` targets can have a clean working tree and still have changes to review.)
    Pick a slug and thread `<slug>-review` (reuse the thread if the user is continuing a review).

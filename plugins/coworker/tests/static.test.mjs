@@ -417,10 +417,10 @@ describe("skills: ops (status, threads, mode)", () => {
       ["threads", "", /No threads yet/],
       ["threads", "list", /No threads yet/],
       ["threads", "show demo-thread", /No thread "demo-thread"/],
-      ["mode", "", /auto mode: off/],
-      ["mode", "on", /auto mode ON/],
-      ["mode", "status", /auto mode: ON/],
-      ["mode", "off", /auto mode OFF/],
+      ["mode", "", /coworker mode: off/],
+      ["mode", "on", /coworker mode → on/],
+      ["mode", "status", /coworker mode: on/],
+      ["mode", "off", /coworker mode → off/],
     ];
     for (const [name, args, expected] of cases) {
       const result = run(name, args);
@@ -557,7 +557,7 @@ describe("hooks/hooks.json", () => {
     for (const { event } of entries) assert.ok(HOOK_EVENTS.has(event), `unknown hook event ${event}`);
   });
 
-  test("every command hook uses exec form (command \"node\" + args) with timeout <= 10", () => {
+  test("every command hook uses exec form (command \"node\" + args) with a short timeout (prompt ≤ 10s, stop ≤ 30s)", () => {
     for (const { event, hook } of entries) {
       assert.equal(hook.type, "command", `${event}: only command hooks expected`);
       assert.equal(hook.command, "node", `${event}: command must be exactly "node" (exec form, no shell string)`);
@@ -566,8 +566,15 @@ describe("hooks/hooks.json", () => {
       assert.match(hook.args[0], /^\$\{CLAUDE_PLUGIN_ROOT\}\//, `${event}: script path must be rooted at \${CLAUDE_PLUGIN_ROOT}`);
       assert.ok(fs.existsSync(path.join(ROOT, hook.args[0].replace("${CLAUDE_PLUGIN_ROOT}/", ""))), `${event}: script does not exist`);
       assert.equal(typeof hook.timeout, "number", `${event}: timeout must be a number (seconds)`);
-      assert.ok(hook.timeout > 0 && hook.timeout <= 10, `${event}: timeout ${hook.timeout}s must be in (0, 10]`);
+      const max = event === "Stop" ? 30 : 10;
+      assert.ok(hook.timeout > 0 && hook.timeout <= max, `${event}: timeout ${hook.timeout}s must be in (0, ${max}]`);
     }
+  });
+
+  test("declares the UserPromptSubmit reminder and the Stop review gate", () => {
+    assert.deepEqual([...new Set(entries.map((entry) => entry.event))].sort(), ["Stop", "UserPromptSubmit"]);
+    const stop = entries.find((entry) => entry.event === "Stop").hook;
+    assert.deepEqual(stop.args.slice(1), ["hook", "stop"]);
   });
 
   test("the hook entry point is silent and exits 0 fast (auto mode off, bad input)", () => {

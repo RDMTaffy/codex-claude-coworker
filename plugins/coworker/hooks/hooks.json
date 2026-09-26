@@ -1,5 +1,5 @@
 {
-  "description": "coworker auto mode: when enabled for a project, adds a one-line note to non-trivial coding prompts so Claude runs the plan/review dialogue with GPT-6 Astra. Silent when auto mode is off.",
+  "description": "coworker automatic collaboration (per project): UserPromptSubmit adds a short note when /coworker:mode is on or always; in always mode a Stop hook asks Claude to get a GPT-6 Astra review of unreviewed code changes before ending the turn. Silent when the mode is off.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,8 +7,28 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/coworker.mjs", "hook", "prompt-submit"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/coworker.mjs",
+              "hook",
+              "prompt-submit"
+            ],
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/coworker.mjs",
+              "hook",
+              "stop"
+            ],
+            "timeout": 30
           }
         ]
       }

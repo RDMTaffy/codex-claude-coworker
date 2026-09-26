@@ -97,6 +97,9 @@ export function validateConfig(config) {
       throw new Error(`Invalid ${key}: ${config[key]}`);
     }
   }
+  if (![true, false, "always", "auto", "on", "off"].includes(config.autoMode)) {
+    throw new Error(`Invalid autoMode ${JSON.stringify(config.autoMode)} (false | true | "always").`);
+  }
   if (!["strict", "inherit"].includes(config.isolation)) throw new Error(`Invalid isolation "${config.isolation}" (strict|inherit).`);
   if (!["chatgpt", "any"].includes(config.authMethod)) throw new Error(`Invalid authMethod "${config.authMethod}" (chatgpt|any).`);
   return config;

@@ -303,7 +303,7 @@ describe("project root: ${CLAUDE_PROJECT_DIR} is the launch dir, the Bash cwd mo
     const launchDir = path.join(ctx.repo, "packages", "app"); // `claude` started here
     const m = runBang("mode", "on", { cwd: launchDir, env: ctx.env() });
     assert.equal(m.code, 0, m.dump());
-    assert.match(m.stdout, /auto mode ON/);
+    assert.match(m.stdout, /coworker mode → on/);
     const h = hook(ctx, { projectDir: launchDir, prompt: "로그인 토큰 갱신 기능을 구현해줘, 여러 파일 수정 필요" });
     assert.equal(h.code, 0);
     assert.match(h.stdout, /coworker auto mode is on/, `mode wrote ${m.stdout.match(/written to (\S+)\)/)?.[1]} but the hook reads ${launchDir}/.coworker/config.json`);

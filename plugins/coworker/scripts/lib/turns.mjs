@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildArgs, chooseBinary } from "./codex.mjs";
 import { EFFORTS } from "./config.mjs";
-import { changedFiles, diffBetween, diffStat, resolveTarget, snapshotTree } from "./git.mjs";
+import { changedFiles, diffBetween, diffStat, repoTop, resolveTarget, snapshotTree } from "./git.mjs";
 import {
   addItems,
   applyAstraRulings,
@@ -301,8 +301,12 @@ export async function startTurn({ kind, flags, config, projectRoot, cwd, gitCwd 
         responsesText,
         hasPlan,
       });
-      extraMeta.target = { ...targetSpec, label: target.label, base: target.base, head: target.head, live: target.live, files: files.slice(0, 200) };
+      extraMeta.target = { ...targetSpec, label: target.label, base: target.base, head: target.head, live: target.live, files: files.slice(0, 200), fileCount: files.length };
       extraMeta.reviewCwd = gitCwd;
+      // Full list for the always-mode Stop gate's coverage check (meta keeps only the first 200).
+      extraMeta.target.repoTop = target.base || target.head ? repoTop(gitCwd) : null;
+      ensureJobDir();
+      fs.writeFileSync(path.join(paths.dir, "target-files.txt"), `${files.join("\n")}\n`, { mode: 0o600 });
     } else if (kind === "debate") {
       const stage = flags.stage;
       const debate = thread?.debate ?? {};

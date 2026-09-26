@@ -947,7 +947,7 @@ test("15 hook prompt-submit: silent unless auto mode; long reminder once per ses
   assert.equal(r.code, 0);
   assert.match(r.stdout, LONG);
   assert.ok(r.ms < 5000, `hook took ${r.ms}ms (hook timeout is 5s)`);
-  assert.ok(fs.existsSync(path.join(coworkerDir(ctx.repo), "hook-sessions", "sess-1")));
+  assert.ok(fs.existsSync(path.join(coworkerDir(ctx.repo), "hook-sessions", "sess-1.auto")));
 
   r = hook({ ...base, prompt: "이 함수가 어떤 역할을 하는지 설명해 주세요" });
   assert.equal(r.code, 0);
@@ -1135,13 +1135,13 @@ test("19 mode on/off/status, task-state, help and usage errors", (t) => {
   const ctx = setup(t);
   let r = ctx.cli(["mode", "status", ...ctx.P]);
   assert.equal(r.code, 0, r.dump());
-  assert.match(r.stdout, /auto mode: off/);
+  assert.match(r.stdout, /coworker mode: off/);
   r = ctx.cli(["mode", "on", ...ctx.P]);
   assert.equal(r.code, 0, r.dump());
   assert.equal(readJson(path.join(coworkerDir(ctx.repo), "config.json")).autoMode, true);
   assert.equal(fs.readFileSync(path.join(coworkerDir(ctx.repo), ".gitignore"), "utf8"), "*\n");
   r = ctx.cli(["mode", "status", ...ctx.P]);
-  assert.match(r.stdout, /auto mode: ON/);
+  assert.match(r.stdout, /coworker mode: on/);
   r = ctx.cli(["mode", "off", ...ctx.P]);
   assert.equal(readJson(path.join(coworkerDir(ctx.repo), "config.json")).autoMode, false);
   assertRefused(ctx.cli(["mode", "sideways", ...ctx.P]), /Unknown mode "sideways"/);

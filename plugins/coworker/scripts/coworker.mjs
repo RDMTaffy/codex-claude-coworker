@@ -36,7 +36,8 @@ import {
   forceUnlockThread,
   releaseThreadLock,
 } from "./lib/state.mjs";
-import { archiveThread, finalizeTurn, startTurn, TurnError } from "./lib/turns.mjs";
+import { archiveThread, finalizeTurn, resolveInput, startTurn, TurnError } from "./lib/turns.mjs";
+import { normalizeLevel, onPromptSubmit, onStop, readLevel } from "./lib/auto.mjs";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 // Claude Code inlines roughly the first 30 KB of Bash output; Korean text is 3 bytes/char, so cap by bytes.
@@ -58,7 +59,7 @@ const TURN_SPEC = {
   strings: [
     "thread", "message-file", "message", "effort", "model", "lang", "wait-budget", "timeout", "project", "cwd",
     "responses", "max-rounds", "isolation", "base", "commit", "focus", "plan-file", "claude-view", "stage", "brief",
-    "claude-proposal", "claude-final",
+    "claude-proposal", "claude-final", "paths-file",
   ],
   arrays: ["attach", "paths"],
   aliases: { m: "message", t: "thread", f: "message-file", a: "attach" },
@@ -196,7 +197,22 @@ function pruneJobs(projectRoot, config) {
 }
 
 async function cmdTurn(kind, argv) {
-  const { flags } = parseArgs(argv, TURN_SPEC);
+  const { flags, positionals } = parseArgs(argv, TURN_SPEC);
+  // Every value must belong to a flag: a stray word (e.g. a second path after one --paths) would
+  // otherwise be dropped silently and narrow the review without anyone noticing.
+  if (positionals.length) {
+    throw new UsageError(`Unexpected argument(s): ${positionals.map((word) => JSON.stringify(word)).join(" ")}. Use one --paths per file or --paths-file <file>.`);
+  }
+  if (flags["paths-file"]) {
+    const listFile = resolveInput(flags["paths-file"], process.cwd(), flags.project || process.env.CLAUDE_PROJECT_DIR);
+    let text;
+    try {
+      text = fs.readFileSync(listFile, "utf8");
+    } catch (error) {
+      throw new UsageError(`Cannot read --paths-file "${flags["paths-file"]}": ${error.code ?? error.message}`);
+    }
+    flags.paths = [...(flags.paths ?? []), ...text.split("\n").map((line) => line.trim()).filter(Boolean)];
+  }
   const ctx = context(flags);
   const budgetMs = effectiveBudgetMs(flags, ctx.config); // validate before anything is launched
   ensureStateDir(ctx.projectRoot);
@@ -365,7 +381,7 @@ function cmdStatus(argv) {
   const c = ctx.config;
   lines.push(`- model ${c.model} · effort ask=${c.effort.ask} plan=${c.effort.plan} review=${c.effort.review} rereview=${c.effort.rereview} debate=${c.effort.debate}`);
   lines.push(`- maxRounds plan=${c.maxRounds.plan} review=${c.maxRounds.review} · isolation ${c.isolation} · auth ${c.authMethod} · web search ${c.webSearch ? "on" : "off"} · lang ${c.lang}`);
-  lines.push(`- wait budget ${c.waitBudgetSec}s · hard timeout ${c.timeoutSec}s · auto mode ${c.autoMode ? "ON" : "off"}`);
+  lines.push(`- wait budget ${c.waitBudgetSec}s · hard timeout ${c.timeoutSec}s · collaboration mode ${readLevel(ctx.projectRoot)}`);
   lines.push(`- files: ${ctx.sources.project} · ${ctx.sources.global}`);
   lines.push("", "## Threads");
   if (!report.threads.length) lines.push("- none yet");
@@ -539,35 +555,49 @@ function cmdTaskState(argv) {
   return EXIT.ok;
 }
 
+const LEVEL_TEXT = {
+  off: "off — Astra is only consulted when you ask (/coworker:task, /coworker:review, …).",
+  auto: "on — changes of ~50+ lines or with a design decision go through plan → implement → review with GPT-6 Astra; Claude skips small edits and questions (noted in one line).",
+  always:
+    "always — EVERY request that changes code goes through plan → implement → review with GPT-6 Astra, with no small-change exemption; before a turn that changed code can end, a Stop hook makes Claude get an Astra review. Questions without code changes are answered normally.",
+};
+
 function cmdMode(argv) {
   const { flags, positionals } = parseArgs(argv, { booleans: ["global"], strings: ["project", "cwd"] });
-  const ctx = context(flags);
+  // No config validation here: `mode` must be able to repair an invalid autoMode value.
+  const cwd = path.resolve(flags.cwd ?? process.cwd());
+  const given = [flags.project, process.env.CLAUDE_PROJECT_DIR].find((value) => value && !value.includes("${"));
+  const projectRoot = path.resolve(given ?? findProjectRoot(cwd));
+  const ctx = { projectRoot, sources: { project: path.join(projectRoot, ".coworker", "config.json"), global: globalConfigPath() } };
   const sub = positionals[0] ?? "status";
   const file = flags.global ? globalConfigPath() : ctx.sources.project;
-  if (sub === "on" || sub === "off") {
+  const where = flags.global ? "global default for projects without their own setting" : `this project only (${ctx.projectRoot})`;
+  if (["on", "off", "always", "auto", "true", "false"].includes(sub)) {
+    const value = { on: true, auto: true, true: true, off: false, false: false, always: "always" }[sub];
     if (!flags.global) ensureStateDir(ctx.projectRoot);
-    writeConfigKey(file, "autoMode", sub === "on");
-    out(`coworker auto mode ${sub === "on" ? "ON" : "OFF"} (${flags.global ? "global default" : `project ${ctx.projectRoot}`}; written to ${file}).`);
-    if (sub === "on") {
-      out("From now on, non-trivial code changes in this project go through the plan → implement → review dialogue with GPT-6 Astra (coworker:task). Small edits and questions skip it.");
-    }
+    writeConfigKey(file, "autoMode", value);
+    out(`coworker mode → ${LEVEL_TEXT[normalizeLevel(value)]}`);
+    out(`Scope: ${where} (written to ${file}). Takes effect from the next prompt.`);
     return EXIT.ok;
   }
   if (sub === "status") {
-    const effective = loadConfig({ projectRoot: ctx.projectRoot }).config.autoMode;
-    out(`coworker auto mode: ${effective ? "ON" : "off"} (project file: ${ctx.sources.project}; global: ${globalConfigPath()})`);
+    const level = readLevel(ctx.projectRoot);
+    const projectValue = readJson(ctx.sources.project)?.autoMode;
+    out(`coworker mode: ${LEVEL_TEXT[level]}`);
+    if (projectValue !== undefined && ![true, false, "always", "auto", "on", "off"].includes(projectValue)) {
+      out(`⚠ ${ctx.sources.project} has an invalid autoMode ${JSON.stringify(projectValue)}; the hooks treat it as off and other coworker commands reject the config. Fix it with /coworker:mode off | on | always.`);
+    }
+    out(`Source: ${projectValue !== undefined ? `project file ${ctx.sources.project}` : `global default ${globalConfigPath()} (this project has no own setting)`}`);
     return EXIT.ok;
   }
-  throw new UsageError(`Unknown mode "${sub}" (on|off|status).`);
+  throw new UsageError(`Unknown mode "${sub}" (off | on | always | status).`);
 }
 
 // ------------------------------------------------------------------ hook (must never block the prompt)
 
-const INTENT = /(구현|추가|수정|고쳐|고치|리팩|변경|만들|옮겨|개선|적용|바꿔|작성해|짜줘|fix|implement|add|refactor|migrate|build|change|update|rewrite|create)/i;
-
 function cmdHook(argv) {
+  // Hooks must never break the user's session: every failure is swallowed and the exit code stays 0.
   try {
-    if (argv[0] !== "prompt-submit") return;
     let raw = "";
     try {
       raw = fs.readFileSync(0, "utf8");
@@ -575,30 +605,15 @@ function cmdHook(argv) {
       return;
     }
     const input = JSON.parse(raw || "{}");
-    const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
-    if (!projectDir) return;
-    const project = readJson(path.join(projectDir, ".coworker", "config.json"));
-    const globalConfig = readJson(globalConfigPath());
-    const autoMode = project && !project.__corrupt && project.autoMode !== undefined ? project.autoMode : globalConfig?.autoMode;
-    if (!autoMode) return;
-    const prompt = String(input.prompt ?? "").trim();
-    if (prompt.startsWith("/") || prompt.length < 15) return;
-    const markerDir = path.join(projectDir, ".coworker", "hook-sessions");
-    const marker = path.join(markerDir, String(input.session_id ?? "unknown").replace(/[^A-Za-z0-9_-]/g, "_"));
-    const first = !fs.existsSync(marker);
-    if (first) {
-      fs.mkdirSync(markerDir, { recursive: true });
-      const ignore = path.join(projectDir, ".coworker", ".gitignore");
-      if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
-      fs.writeFileSync(marker, new Date().toISOString());
-      out(
-        "coworker auto mode is on for this project. In this mode, code changes of roughly 50+ lines or with a design decision go through the coworker:task skill: Claude drafts a plan, GPT-6 Astra (via Codex) critiques it, Claude implements, then Astra reviews the diff over a tracked issue ledger. Questions, small edits and trivial fixes skip the dialogue, and Claude notes the skip in one line (\"Astra 협업 생략: 소규모 변경\"). The user can turn this off with /coworker:mode off.",
-      );
-    } else if (INTENT.test(prompt)) {
-      out("coworker auto mode is on: if this request will change ~50+ lines or involves a design choice, it goes through the coworker:task skill (plan and review dialogue with GPT-6 Astra); otherwise it is skipped with a one-line note.");
+    if (argv[0] === "prompt-submit") {
+      const text = onPromptSubmit(input);
+      if (text) out(text);
+    } else if (argv[0] === "stop") {
+      const decision = onStop(input);
+      if (decision) out(JSON.stringify(decision));
     }
   } catch {
-    // never block or break the user's prompt
+    // never block or break the user's prompt or stop on our own errors
   }
 }
 
@@ -609,7 +624,7 @@ const HELP = `coworker — Claude Code ⇄ GPT-6 Astra (Codex CLI) collaboration
 Turns (each is a background job; the CLI waits up to --wait-budget, default 540s):
   coworker ask    --thread T --message-file F [--attach F]… [--claude-view F] [--new]
   coworker plan   --thread T --message-file F [--attach plan.md]… [--responses R.json] [--new]
-  coworker review --thread T [--uncommitted | --base REF | --commit SHA] [--paths P]… [--focus TEXT]
+  coworker review --thread T [--uncommitted | --base REF | --commit SHA] [--paths P]… [--paths-file F] [--focus TEXT]
                   [--message-file F] [--plan-file F] [--responses R.json] [--deep] [--new]
   coworker debate --thread T --stage open  --brief F --claude-proposal F
   coworker debate --thread T --stage cross --message-file F
@@ -621,7 +636,7 @@ Turns (each is a background job; the CLI waits up to --wait-budget, default 540s
 Jobs:     coworker wait [JOB | --thread T]   coworker cancel [JOB | --thread T]   coworker jobs [--prune]
 Threads:  coworker threads [list | show T | ledger T | reset T | unlock T]
 Task:     coworker task-state SLUG [--phase P] [--plan PATH] [--set k=v]… [--note TEXT]
-Setup:    coworker status [--ping] [--json] [--refresh]    coworker mode [on|off|status] [--global]
+Setup:    coworker status [--ping] [--json] [--refresh]    coworker mode [off|on|always|status] [--global]
 
 responses JSON (for plan/review rounds ≥ 2) — one entry per open item:
   [{"id":"R1","decision":"accept|partial|reject|defer|user","rationale":"…","evidence":"…","change_ref":"…"}]

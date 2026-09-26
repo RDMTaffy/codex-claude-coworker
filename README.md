@@ -78,9 +78,21 @@ claude plugin install coworker@codex-claude-coworker
 | `/coworker:debate <결정할 문제>` | 블라인드 토론: 독립 제안 → 교차 검토 → 봉인된 최종 입장 → 의사결정표 |
 | `/coworker:status [--ping]` | 바이너리/로그인/설정/스레드/실행 중 작업/권한 점검 |
 | `/coworker:threads [list \| show T \| ledger T \| reset T \| unlock T]` | 대화 스레드와 이슈 원장, 사용량 확인 (`unlock`: 비정상 종료로 남은 잠금 해제) |
-| `/coworker:mode on \| off` | **자동 협업 모드**: 켜면 50줄 이상 변경/설계 결정이 있는 요청은 자동으로 `coworker:task` 흐름을 탑니다 (작은 수정·질문은 생략) |
+| `/coworker:mode on \| always \| off` | **자동 협업 (프로젝트 단위)** — `on`: 50줄 이상 변경/설계 결정만 자동 협업, 작은 수정은 Claude 판단으로 생략 · `always`: 크기와 무관하게 **모든 코드 변경**을 Astra와 협업하고, 리뷰 안 된 변경이 있으면 턴을 끝내기 전에 리뷰를 강제 |
 
 자연어로도 됩니다: "이거 Astra랑 같이 계획 세워서 구현해줘", "Codex한테 이 설계 어떻게 생각하는지 물어봐", "Astra한테 리뷰 받아줘".
+
+### 항상 협업 모드 (`/coworker:mode always`)
+
+켠 프로젝트에서만 동작합니다(설정은 그 프로젝트의 `.coworker/config.json`).
+
+1. 매 프롬프트마다 "코드가 바뀌는 요청이면 크기와 상관없이 `coworker:task`(계획→구현→리뷰)로 진행"이라는 안내가 붙습니다.
+2. Claude가 턴을 끝내려 할 때(Stop 훅), 세션 기록을 보고 **이번 턴에 Claude가 직접 고친 파일**(Edit/Write, 그리고 Bash를 썼다면 턴 시작 이후 수정된 미커밋 파일)을 찾습니다. 그 뒤로 Astra 리뷰가 없었으면 종료를 막고, 바로 그 파일들만 새 스레드에서 `coworker:review --fix`로 리뷰받게 합니다.
+3. 사용자가 직접 고친 파일이나 다른 세션의 변경은 대상이 아닙니다. 한 턴에 한 번만 요구하고, 이미 리뷰됐거나 리뷰가 진행 중이거나 코드 변경이 없는 턴(질문)에는 요구하지 않습니다.
+
+`/coworker:mode on`으로 되돌리면 다시 큰 변경만 자동 협업합니다.
+
+알려진 한계(드문 경우라 게이트가 잡지 못함): 체크아웃하지 않은 다른 브랜치에 한 커밋, 중첩 저장소·워크트리 안에서 Bash로 한 수정, 백그라운드 작업이 턴 사이에 한 커밋, git 설정 `diff.renames=false`에서의 이름 변경 커밋, Esc로 중단한 턴의 수정. 이 경우에도 프롬프트 안내는 그대로 적용됩니다.
 
 ### 대화는 어디서 보나요?
 
@@ -117,6 +129,7 @@ claude plugin install coworker@codex-claude-coworker
 }
 ```
 
+- `autoMode`: `false`(끔) · `true`(on — 큰 변경만) · `"always"`(모든 코드 변경 + 리뷰 게이트).
 - effort: `low | medium | high | xhigh | max | ultra`. 실측상 작은 diff에서는 high 이상에서 품질 차이가 거의 없고 시간·토큰만 늘어 기본값은 high입니다. 큰 변경은 `/coworker:review --deep`(xhigh).
 - `webSearch: false`로 두면 Astra의 웹 검색(`web_search="disabled"`)을 끕니다. 코드 조각이 검색 질의로 나가는 것도 막고 싶을 때 쓰세요.
 - 스레드 이름은 영문·숫자·`_`·`-`만 씁니다 (점 불가).

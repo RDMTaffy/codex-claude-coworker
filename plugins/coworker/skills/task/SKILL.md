@@ -23,7 +23,8 @@ Run every `coworker` call with the Bash tool and `timeout: 600000`.
    (no flags = read only): `coworker task-state <slug> --project "${CLAUDE_PROJECT_DIR}"`.
    If its `phase` is past `new`, resume from that phase instead of restarting. Otherwise start:
    `coworker task-state <slug> --project "${CLAUDE_PROJECT_DIR}" --phase planning`
-4. `--quick` in the task text (or a clearly small change): skip §1–§2 and do one review round (§4).
+4. `--quick` in the task text (or a clearly small change — but NOT when coworker mode is `always`, where every
+   change gets the full flow unless the user wrote `--quick`): skip §1–§2 and do one review round (§4).
 
 ## 1. Draft the plan (Claude)
 Explore the code first. Write `.coworker/work/<slug>/plan.md`: goal, approach, file-by-file changes,

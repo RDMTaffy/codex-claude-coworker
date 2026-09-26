@@ -1,6 +1,6 @@
 {
   "name": "coworker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Converse with GPT-6 Astra (Codex CLI, ChatGPT login) while Claude does the work: plan critique, multi-round code review with an issue ledger, second opinions and blind debates.",
   "author": {
     "name": "RDMTaffy",
